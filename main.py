@@ -55,7 +55,15 @@ def main():
 
     # 1. 讀取 watchlist
     print(f"[{datetime.now()}] 讀取 watchlist...")
-    watchlist = read_watchlist()
+    universe = os.environ.get("SCAN_UNIVERSE", "active")
+    if universe == "active":
+        from stock_strategies.universe import get_active_stocks
+        watchlist = get_active_stocks(int(os.environ.get("ACTIVE_STOCK_COUNT", "20")))
+        print(f"  活躍台股：成交量至少 1500 張，成交金額不限；排行日期 {watchlist[0]['date']}")
+    elif universe == "watchlist":
+        watchlist = read_watchlist()
+    else:
+        raise ValueError("SCAN_UNIVERSE must be active or watchlist")
     print(f"  → {len(watchlist)} 檔啟用中")
 
     # 2. 取得大盤狀態（濾鏡）
