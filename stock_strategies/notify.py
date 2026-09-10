@@ -16,8 +16,15 @@ def send_telegram(text: str):
         "parse_mode": "Markdown",
     }
     r = requests.post(url, json=payload, timeout=10)
+    if r.ok:
+        return
+
+    # Stock names and generated notes can contain Markdown syntax. If Telegram
+    # rejects the formatting, retry as plain text so the notification is not lost.
+    payload.pop("parse_mode")
+    r = requests.post(url, json=payload, timeout=10)
     if not r.ok:
-        print(f"Telegram 送失敗: {r.text}", file=sys.stderr)
+        raise RuntimeError(f"Telegram 送失敗: {r.text}")
 
 
 def _trend_emoji(chg: float) -> str:
