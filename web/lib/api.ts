@@ -13,6 +13,7 @@ export type Strategy = {
 };
 
 export type RunResult = {
+  universe?: { source: string; count: number; date: string | null };
   strategy: { id: string; name: string };
   market: { bullish: boolean; close: number | null; ma20: number | null; note: string };
   downgraded: number;
@@ -52,9 +53,9 @@ export const api = {
     }),
   getMarket: () => jfetch<any>("/api/market"),
   getWatchlist: () => jfetch<{ items: any[]; error?: string }>("/api/watchlist"),
-  run: (strategy_id: string, limit?: number) =>
+  run: (strategy_id: string, limit?: number, universe: "watchlist" | "active" | "price_groups" = "watchlist", active_count = 20) =>
     jfetch<RunResult>("/api/run", {
       method: "POST",
-      body: JSON.stringify({ strategy_id, limit }),
+      body: JSON.stringify({ strategy_id, limit, universe, active_count }),
     }),
 };
