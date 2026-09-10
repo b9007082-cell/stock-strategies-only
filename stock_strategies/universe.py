@@ -26,8 +26,8 @@ def normalize(rows, source):
         sid = str(row.get(code, '')).strip()
         if not re.fullmatch(r'[1-9][0-9]{3}', sid):
             continue
-        shares, turnover = number(row.get(volume)), number(row.get(amount))
-        if shares < 1_500_000 or number(row.get(close)) <= 0:
+        shares, turnover, price = number(row.get(volume)), number(row.get(amount)), number(row.get(close))
+        if shares < 1_500_000 or price <= 0:
             continue
         raw_date = str(row.get('Date', '')).strip()
         if not re.fullmatch(r'\d{7}', raw_date):
@@ -37,12 +37,11 @@ def normalize(rows, source):
         if age < 0 or age > 14:
             raise ValueError('成交資料已過期，請稍後重試')
         result.append(dict(stock_id=sid, name=row[name].strip(), enabled=True,
-                           market=market, turnover=turnover, volume=shares, date=date.isoformat()))
+                           market=market, turnover=turnover, volume=shares, price=price,
+                           date=date.isoformat()))
     return result
 
-def get_active_stocks(limit=20):
-    if not 1 <= limit <= 30:
-        raise ValueError('掃描檔數必須為 1 到 30')
+def _load_active_stocks():
     def fetch(source):
         for attempt in range(3):
             try:
@@ -72,4 +71,26 @@ def get_active_stocks(limit=20):
     if len(dates) != 1:
         raise ValueError('上市與上櫃資料日期不同，請待資料更新後重試')
     rows = sorted([r for batch in batches for r in batch],key=lambda r: (-r['turnover'],r['stock_id']))
+    return rows
+
+def get_active_stocks(limit=20):
+    if not 1 <= limit <= 30:
+        raise ValueError('掃描檔數必須為 1 到 30')
+    rows = _load_active_stocks()
     return rows[:limit]
+
+def get_active_stocks_by_price(per_group=10):
+    """Return equal-sized high/mid/low price groups, ranked by turnover."""
+    if not 1 <= per_group <= 10:
+        raise ValueError('每個價位組的掃描檔數必須為 1 到 10')
+    rows = _load_active_stocks()
+    groups = (
+        ('高價', lambda price: price >= 200),
+        ('中價', lambda price: 50 <= price < 200),
+        ('低價', lambda price: price < 50),
+    )
+    selected = []
+    for label, matches in groups:
+        batch = [dict(row, price_group=label) for row in rows if matches(row['price'])]
+        selected.extend(batch[:per_group])
+    return selected
