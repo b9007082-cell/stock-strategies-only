@@ -21,8 +21,10 @@ from __future__ import annotations
 import os
 import time
 import traceback
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
+import numpy as np
+from fastapi.encoders import jsonable_encoder
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -34,6 +36,7 @@ try:
 except ImportError:
     pass
 
+from stock_strategies.universe import get_active_stocks, get_active_stocks_by_price
 from stock_strategies import loader
 from stock_strategies.evaluate import evaluate
 from stock_strategies.market import apply_market_filter, get_market_state
@@ -71,6 +74,8 @@ class AIGenerateIn(BaseModel):
 
 
 class RunIn(BaseModel):
+    universe: Literal["watchlist", "active", "price_groups"] = "watchlist"
+    active_count: int = Field(20, ge=1, le=30)
     strategy_id: str
     limit: Optional[int] = Field(None, description="只跑前 N 檔（debug 用）")
 
@@ -151,9 +156,14 @@ def run(payload: RunIn):
         raise HTTPException(404, f"找不到策略 {payload.strategy_id}")
 
     try:
-        wl = read_watchlist()
+        if payload.universe == "active":
+            wl = get_active_stocks(payload.active_count)
+        elif payload.universe == "price_groups":
+            wl = get_active_stocks_by_price(min(payload.active_count, 10))
+        else:
+            wl = read_watchlist()
     except Exception as e:
-        raise HTTPException(500, f"讀取 watchlist 失敗：{e}")
+        raise HTTPException(500, f"讀取股票清單失敗：{e}")
 
     if payload.limit:
         wl = wl[: payload.limit]
@@ -182,7 +192,8 @@ def run(payload: RunIn):
     order = {"BUY": 0, "WATCH": 1, "SKIP": 2, "ERROR": 3}
     results.sort(key=lambda x: (order.get(x.get("action"), 4), -x.get("signal_score", 0)))
 
-    return {
+    return jsonable_encoder({
+        "universe": {"source": payload.universe, "count": len(wl), "date": wl[0].get("date") if wl else None},
         "strategy": {"id": strategy["id"], "name": strategy["name"]},
         "market": market_state,
         "downgraded": downgraded,
@@ -194,4 +205,4 @@ def run(payload: RunIn):
             "error": sum(1 for r in results if r.get("action") == "ERROR"),
         },
         "results": results,
-    }
+    }, custom_encoder={np.generic: lambda value: value.item()})
