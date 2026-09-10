@@ -57,9 +57,12 @@ def main():
     print(f"[{datetime.now()}] 讀取 watchlist...")
     universe = os.environ.get("SCAN_UNIVERSE", "active")
     if universe == "active":
-        from stock_strategies.universe import get_active_stocks
-        watchlist = get_active_stocks(int(os.environ.get("ACTIVE_STOCK_COUNT", "20")))
-        print(f"  活躍台股：成交量至少 1500 張，成交金額不限；排行日期 {watchlist[0]['date']}")
+        from stock_strategies.universe import get_active_stocks_by_price
+        per_group = int(os.environ.get("ACTIVE_STOCKS_PER_PRICE_GROUP", "10"))
+        watchlist = get_active_stocks_by_price(per_group)
+        counts = {label: sum(r.get('price_group') == label for r in watchlist) for label in ('高價', '中價', '低價')}
+        print(f"  活躍台股分價掃描：高價≥200、中價50～200、低價<50；每組 {per_group} 檔")
+        print(f"  成交量至少 1500 張、成交金額不限；排行日期 {watchlist[0]['date']}；分組 {counts}")
     elif universe == "watchlist":
         watchlist = read_watchlist()
     else:
