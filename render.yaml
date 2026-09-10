@@ -8,10 +8,6 @@ services:
     envVars:
       - key: FINMIND_TOKEN
         sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
       - key: GOOGLE_SHEET_ID
         sync: false
       - key: GOOGLE_CREDS_JSON
@@ -19,4 +15,4 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: WEB_PASSWORD
-        generateValue: true
+        sync: false
