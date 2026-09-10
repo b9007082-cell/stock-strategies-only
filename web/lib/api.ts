@@ -34,7 +34,10 @@ async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
   let password = typeof window !== "undefined" ? sessionStorage.getItem("web_password") || "" : "";
   let res = await request(password);
   if (res.status === 401 && typeof window !== "undefined") {
-    password = window.prompt("請輸入選股網站密碼") || "";
+    // Several dashboard requests start together. Reuse a password another
+    // request may just have collected instead of opening duplicate prompts.
+    password = sessionStorage.getItem("web_password") || "";
+    if (!password) password = window.prompt("請輸入選股網站密碼") || "";
     if (password) sessionStorage.setItem("web_password", password);
     res = await request(password);
   }
