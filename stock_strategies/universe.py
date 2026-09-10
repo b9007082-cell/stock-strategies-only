@@ -1,5 +1,6 @@
 """Latest official TWSE/TPEx turnover ranking for ordinary shares."""
 import re
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor
@@ -43,19 +44,22 @@ def get_active_stocks(limit=20):
     if not 1 <= limit <= 30:
         raise ValueError('掃描檔數必須為 1 到 30')
     def fetch(source):
-        try:
-            response = requests.get(
-                source[1],
-                timeout=30,
-                headers={"User-Agent": "Mozilla/5.0 stock-strategies-only/3.3"},
-            )
-            response.raise_for_status()
-            rows = response.json()
-            if not isinstance(rows, list) or not rows:
-                raise ValueError('empty data')
-            return normalize(rows, source)
-        except Exception:
-            return None
+        for attempt in range(3):
+            try:
+                response = requests.get(
+                    source[1],
+                    timeout=20,
+                    headers={"User-Agent": "Mozilla/5.0 stock-strategies-only/3.3"},
+                )
+                response.raise_for_status()
+                rows = response.json()
+                if not isinstance(rows, list) or not rows:
+                    raise ValueError('empty data')
+                return normalize(rows, source)
+            except Exception:
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+        return None
     with ThreadPoolExecutor(max_workers=2) as pool:
         batches = list(pool.map(fetch, SOURCES))
     failed = [source[0] for source, batch in zip(SOURCES, batches) if not batch]
