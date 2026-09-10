@@ -13,13 +13,29 @@ export default function Dashboard() {
   const [activeCount, setActiveCount] = useState(10);
   const [running, setRunning] = useState(false);
   const [run, setRun] = useState<RunResult | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem("stock_strategies_last_run");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.result) setRun(parsed.result);
+        if (parsed.savedAt) setSavedAt(parsed.savedAt);
+        if (parsed.universe) setUniverse(parsed.universe);
+        if (parsed.activeCount) setActiveCount(parsed.activeCount);
+        if (parsed.strategyId) setPicked(parsed.strategyId);
+      }
+    } catch {
+      localStorage.removeItem("stock_strategies_last_run");
+    }
     api.listStrategies().then((d) => {
       setStrategies(d.strategies);
-      if (d.strategies.find((s) => s.id === "default")) setPicked("default");
-      else if (d.strategies[0]) setPicked(d.strategies[0].id);
+      if (!localStorage.getItem("stock_strategies_last_run")) {
+        if (d.strategies.find((s) => s.id === "default")) setPicked("default");
+        else if (d.strategies[0]) setPicked(d.strategies[0].id);
+      }
     });
     api.getMarket().then(setMarket).catch(() => setMarket(null));
     api.getWatchlist().then((w) => setWatchCount(w.items?.length ?? 0)).catch(() => setWatchCount(null));
@@ -28,10 +44,18 @@ export default function Dashboard() {
   async function doRun() {
     setRunning(true);
     setError(null);
-    setRun(null);
     try {
       const r = await api.run(picked, undefined, universe, activeCount);
       setRun(r);
+      const now = new Date().toISOString();
+      setSavedAt(now);
+      localStorage.setItem("stock_strategies_last_run", JSON.stringify({
+        result: r,
+        savedAt: now,
+        universe,
+        activeCount,
+        strategyId: picked,
+      }));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -134,6 +158,7 @@ export default function Dashboard() {
           </div>
           <div className="text-xs text-muted mb-3">{run.market.note}</div>
           <div className="text-xs text-muted mb-3">來源：{run.universe?.source === "price_groups" ? "高／中／低價分組" : run.universe?.source === "active" ? "成交活躍台股" : "Watchlist"} · 分析 {run.summary.total} 檔 {run.universe?.date && `· 成交排行日期 ${run.universe.date}`}</div>
+          {savedAt && <div className="text-xs text-muted mb-3">結果已儲存於此瀏覽器 · {new Date(savedAt).toLocaleString("zh-TW")}</div>}
           <div className="space-y-2">
             {run.results.map((r) => (
               <div key={r.stock_id} className="bg-panel2 border border-line rounded-lg p-3 flex items-center gap-3">
