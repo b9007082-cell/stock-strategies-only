@@ -22,14 +22,22 @@ export type RunResult = {
 };
 
 async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-    cache: "no-store",
-  });
+  const request = (password = "") => fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(password ? { "X-Web-Password": password } : {}),
+        ...(init?.headers || {}),
+      },
+      cache: "no-store",
+    });
+  let password = typeof window !== "undefined" ? sessionStorage.getItem("web_password") || "" : "";
+  let res = await request(password);
+  if (res.status === 401 && typeof window !== "undefined") {
+    password = window.prompt("請輸入選股網站密碼") || "";
+    if (password) sessionStorage.setItem("web_password", password);
+    res = await request(password);
+  }
   if (!res.ok) {
     let detail = "";
     try { detail = (await res.json()).detail || ""; } catch {}
