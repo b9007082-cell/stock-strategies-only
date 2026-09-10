@@ -44,18 +44,26 @@ def get_active_stocks(limit=20):
         raise ValueError('掃描檔數必須為 1 到 30')
     def fetch(source):
         try:
-            response = requests.get(source[1], timeout=30)
+            response = requests.get(
+                source[1],
+                timeout=30,
+                headers={"User-Agent": "Mozilla/5.0 stock-strategies-only/3.3"},
+            )
             response.raise_for_status()
             rows = response.json()
             if not isinstance(rows, list) or not rows:
                 raise ValueError('empty data')
             return normalize(rows, source)
         except Exception:
-            raise ValueError(f'{source[0]}成交資料讀取失敗，請稍後重試') from None
+            return None
     with ThreadPoolExecutor(max_workers=2) as pool:
         batches = list(pool.map(fetch, SOURCES))
-    if any(not batch for batch in batches):
-        raise ValueError('上市或上櫃沒有符合條件的成交資料')
+    failed = [source[0] for source, batch in zip(SOURCES, batches) if not batch]
+    batches = [batch for batch in batches if batch]
+    if not batches:
+        raise ValueError('上市與上櫃成交資料均讀取失敗，請稍後重試')
+    if failed:
+        print(f"  注意：{'、'.join(failed)}成交資料暫時無法取得，本次使用其餘市場掃描")
     dates = {r['date'] for batch in batches for r in batch}
     if len(dates) != 1:
         raise ValueError('上市與上櫃資料日期不同，請待資料更新後重試')
