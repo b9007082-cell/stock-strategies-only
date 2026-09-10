@@ -52,7 +52,7 @@ app = FastAPI(title="Stock Strategies API", version="1.0.0")
 @app.middleware("http")
 async def require_web_password(request: Request, call_next):
     password = os.environ.get("WEB_PASSWORD")
-    if password and request.url.path.startswith("/api/"):
+    if password and request.url.path.startswith("/api/") and request.url.path != "/api/health":
         if request.headers.get("X-Web-Password") != password:
             return JSONResponse(status_code=401, content={"detail": "請輸入網站密碼"})
     return await call_next(request)
