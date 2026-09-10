@@ -26,6 +26,8 @@ from typing import Any, Optional, Literal
 import numpy as np
 from fastapi.encoders import jsonable_encoder
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -45,6 +47,15 @@ from stock_strategies.sheet import read_watchlist
 from api.services.ai_generator import generate_strategy_with_ai
 
 app = FastAPI(title="Stock Strategies API", version="1.0.0")
+
+
+@app.middleware("http")
+async def require_web_password(request: Request, call_next):
+    password = os.environ.get("WEB_PASSWORD")
+    if password and request.url.path.startswith("/api/"):
+        if request.headers.get("X-Web-Password") != password:
+            return JSONResponse(status_code=401, content={"detail": "請輸入網站密碼"})
+    return await call_next(request)
 
 # CORS：dev 期間給 localhost:3000 (Next.js)
 _origins_env = os.environ.get("CORS_ORIGINS", "http://localhost:3000")
