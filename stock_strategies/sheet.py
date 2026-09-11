@@ -6,8 +6,19 @@ from google.oauth2.service_account import Credentials
 
 
 def get_gsheet():
-    creds_json = os.environ["GOOGLE_CREDS_JSON"]
-    creds_dict = json.loads(creds_json)
+    creds_json = os.environ["GOOGLE_CREDS_JSON"].strip()
+    # Render preserves quote characters that are commonly used in a local
+    # .env file. Accept both formats so the same value can be pasted there.
+    if creds_json.startswith("GOOGLE_CREDS_JSON="):
+        creds_json = creds_json.split("=", 1)[1].strip()
+    if len(creds_json) >= 2 and creds_json[0] == creds_json[-1] and creds_json[0] in ("'", '"'):
+        creds_json = creds_json[1:-1].strip()
+    try:
+        creds_dict = json.loads(creds_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "GOOGLE_CREDS_JSON 格式錯誤：請貼入服務帳戶 JSON 的完整內容"
+        ) from exc
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
