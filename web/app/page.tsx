@@ -36,7 +36,7 @@ export default function Dashboard() {
         if (d.strategies.find((s) => s.id === "default")) setPicked("default");
         else if (d.strategies[0]) setPicked(d.strategies[0].id);
       }
-    });
+    }).catch((e) => setError(`策略清單載入失敗：${e.message}`));
     api.getMarket().then(setMarket).catch(() => setMarket(null));
     api.getWatchlist().then((w) => setWatchCount(w.items?.length ?? 0)).catch(() => setWatchCount(null));
   }, []);
@@ -127,6 +127,7 @@ export default function Dashboard() {
           <div>
             <label className="label">選擇策略</label>
             <select className="input" value={picked} onChange={(e) => setPicked(e.target.value)}>
+              {strategies.length === 0 && <option value="">策略載入中…</option>}
               {strategies.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}（{s.id}）</option>
               ))}
