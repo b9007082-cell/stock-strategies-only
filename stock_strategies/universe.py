@@ -67,9 +67,14 @@ def _load_active_stocks():
         raise ValueError('上市與上櫃成交資料均讀取失敗，請稍後重試')
     if failed:
         print(f"  注意：{'、'.join(failed)}成交資料暫時無法取得，本次使用其餘市場掃描")
-    dates = {r['date'] for batch in batches for r in batch}
-    if len(dates) != 1:
-        raise ValueError('上市與上櫃資料日期不同，請待資料更新後重試')
+    market_dates = {
+        source[0]: sorted({r['date'] for r in batch}, reverse=True)[0]
+        for source, batch in zip(SOURCES, batches)
+        if batch
+    }
+    if len(set(market_dates.values())) > 1:
+        details = '、'.join(f'{market} {date}' for market, date in market_dates.items())
+        print(f'  注意：各市場最新資料日期不同（{details}），本次仍使用各自最新資料掃描')
     rows = sorted([r for batch in batches for r in batch],key=lambda r: (-r['turnover'],r['stock_id']))
     return rows
 
