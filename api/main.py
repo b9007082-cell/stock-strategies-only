@@ -42,7 +42,12 @@ from stock_strategies.universe import get_active_stocks, get_active_stocks_by_pr
 from stock_strategies import loader
 from stock_strategies.evaluate import evaluate
 from stock_strategies.market import apply_market_filter, get_market_state
-from stock_strategies.sheet import read_watchlist
+from stock_strategies.sheet import (
+    delete_saved_strategy,
+    read_saved_strategies,
+    read_watchlist,
+    upsert_saved_strategy,
+)
 
 from api.services.ai_generator import generate_strategy_with_ai
 
@@ -101,7 +106,10 @@ def health():
 
 @app.get("/api/strategies")
 def list_strategies():
-    return {"strategies": loader.list_strategies()}
+    strategies = {s["id"]: s for s in loader.list_strategies()}
+    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
+        strategies.update({s["id"]: s for s in read_saved_strategies()})
+    return {"strategies": list(strategies.values())}
 
 
 @app.get("/api/strategies/defaults")
@@ -111,7 +119,10 @@ def defaults():
 
 @app.get("/api/strategies/{sid}")
 def get_strategy(sid: str):
-    s = loader.get_strategy(sid)
+    s = None
+    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
+        s = next((item for item in read_saved_strategies() if item["id"] == sid), None)
+    s = s or loader.get_strategy(sid)
     if not s:
         raise HTTPException(404, f"找不到策略 {sid}")
     return s
@@ -120,7 +131,10 @@ def get_strategy(sid: str):
 @app.post("/api/strategies")
 def save_strategy(payload: StrategyIn):
     try:
-        clean = loader.save_strategy(payload.model_dump())
+        clean = loader.validate_strategy(payload.model_dump())
+        if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
+            upsert_saved_strategy(clean)
+        loader.save_strategy(clean)
         return clean
     except loader.StrategyError as e:
         raise HTTPException(400, str(e))
@@ -131,6 +145,8 @@ def delete_strategy(sid: str):
     if sid in ("default", "conservative"):
         raise HTTPException(400, "預設策略不可刪除")
     ok = loader.delete_strategy(sid)
+    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
+        ok = delete_saved_strategy(sid) or ok
     if not ok:
         raise HTTPException(404, f"找不到策略 {sid}")
     return {"ok": True}
@@ -162,7 +178,13 @@ def watchlist():
 
 @app.post("/api/run")
 def run(payload: RunIn):
-    strategy = loader.get_strategy(payload.strategy_id)
+    strategy = None
+    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
+        strategy = next(
+            (item for item in read_saved_strategies() if item["id"] == payload.strategy_id),
+            None,
+        )
+    strategy = strategy or loader.get_strategy(payload.strategy_id)
     if not strategy:
         raise HTTPException(404, f"找不到策略 {payload.strategy_id}")
 
