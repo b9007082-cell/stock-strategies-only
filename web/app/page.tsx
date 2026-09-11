@@ -169,6 +169,13 @@ export default function Dashboard() {
                   <div className="text-xs text-muted">
                     {r.risk_notes?.join(" · ") || r.components?.tech_signals?.join(" · ") || "—"}
                   </div>
+                  {(r.action === "BUY" || r.action === "WATCH") && (
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div><span className="text-muted">參考價</span> <span className="font-mono">{r.entry_price ?? "—"}</span></div>
+                      <div><span className="text-muted">停損</span> <span className="font-mono text-err">{r.stop_loss_price ?? "—"}</span></div>
+                      <div><span className="text-muted">目標</span> <span className="font-mono text-buy">{r.target_price ?? "—"}</span></div>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="font-mono">{r.signal_score}</div>
