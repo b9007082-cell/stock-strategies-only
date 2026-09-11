@@ -99,6 +99,17 @@ class RunIn(BaseModel):
 # ---------- Routes ----------
 
 
+def _saved_strategies_or_empty() -> list[dict]:
+    """Keep built-in strategies available during a temporary Sheets outage."""
+    if not (os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID")):
+        return []
+    try:
+        return read_saved_strategies()
+    except Exception as exc:
+        print(f"Warning: unable to load saved strategies from Google Sheets: {exc}")
+        return []
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "ts": int(time.time())}
@@ -107,8 +118,7 @@ def health():
 @app.get("/api/strategies")
 def list_strategies():
     strategies = {s["id"]: s for s in loader.list_strategies()}
-    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
-        strategies.update({s["id"]: s for s in read_saved_strategies()})
+    strategies.update({s["id"]: s for s in _saved_strategies_or_empty()})
     return {"strategies": list(strategies.values())}
 
 
@@ -119,9 +129,7 @@ def defaults():
 
 @app.get("/api/strategies/{sid}")
 def get_strategy(sid: str):
-    s = None
-    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
-        s = next((item for item in read_saved_strategies() if item["id"] == sid), None)
+    s = next((item for item in _saved_strategies_or_empty() if item["id"] == sid), None)
     s = s or loader.get_strategy(sid)
     if not s:
         raise HTTPException(404, f"找不到策略 {sid}")
@@ -178,12 +186,10 @@ def watchlist():
 
 @app.post("/api/run")
 def run(payload: RunIn):
-    strategy = None
-    if os.environ.get("GOOGLE_CREDS_JSON") and os.environ.get("GOOGLE_SHEET_ID"):
-        strategy = next(
-            (item for item in read_saved_strategies() if item["id"] == payload.strategy_id),
-            None,
-        )
+    strategy = next(
+        (item for item in _saved_strategies_or_empty() if item["id"] == payload.strategy_id),
+        None,
+    )
     strategy = strategy or loader.get_strategy(payload.strategy_id)
     if not strategy:
         raise HTTPException(404, f"找不到策略 {payload.strategy_id}")
