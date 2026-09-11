@@ -81,7 +81,9 @@ export default function StrategyDetail() {
                   <th className="text-right px-2 py-2">總分</th>
                   <th className="text-right px-2 py-2">技術</th>
                   <th className="text-right px-2 py-2">回測勝率</th>
-                  <th className="text-right px-5 py-2">參考價</th>
+                  <th className="text-right px-2 py-2">參考價</th>
+                  <th className="text-right px-2 py-2">停損價</th>
+                  <th className="text-right px-5 py-2">目標價</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,7 +101,15 @@ export default function StrategyDetail() {
                         ? `${(r.components.backtest_winrate * 100).toFixed(0)}%`
                         : "—"}
                     </td>
-                    <td className="px-5 py-2 text-right font-mono">{r.entry_price ?? "—"}</td>
+                    <td className="px-2 py-2 text-right font-mono">
+                      {r.action === "BUY" || r.action === "WATCH" ? r.entry_price ?? "—" : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono text-err">
+                      {r.action === "BUY" || r.action === "WATCH" ? r.stop_loss_price ?? "—" : "—"}
+                    </td>
+                    <td className="px-5 py-2 text-right font-mono text-buy">
+                      {r.action === "BUY" || r.action === "WATCH" ? r.target_price ?? "—" : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
