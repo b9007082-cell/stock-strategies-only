@@ -29,6 +29,73 @@ def read_watchlist() -> list[dict]:
     return enabled
 
 
+STRATEGY_HEADERS = [
+    "id", "name", "description", "source", "created_at", "updated_at", "params_json"
+]
+
+
+def _strategies_worksheet():
+    """Return the persistent strategy worksheet, creating it when necessary."""
+    sh = get_gsheet()
+    try:
+        return sh.worksheet("Strategies")
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title="Strategies", rows=500, cols=len(STRATEGY_HEADERS))
+        ws.append_row(STRATEGY_HEADERS)
+        return ws
+
+
+def read_saved_strategies() -> list[dict]:
+    """Read user-created strategies persisted in Google Sheets."""
+    ws = _strategies_worksheet()
+    strategies = []
+    for row in ws.get_all_records():
+        try:
+            params = json.loads(str(row.get("params_json") or "{}"))
+        except (TypeError, json.JSONDecodeError):
+            params = {}
+        strategies.append({
+            "id": str(row.get("id", "")).strip(),
+            "name": str(row.get("name", "")).strip(),
+            "description": str(row.get("description", "")).strip(),
+            "source": str(row.get("source", "manual")).strip() or "manual",
+            "created_at": str(row.get("created_at", "")).strip(),
+            "updated_at": str(row.get("updated_at", "")).strip(),
+            "params": params,
+        })
+    return [strategy for strategy in strategies if strategy["id"]]
+
+
+def upsert_saved_strategy(strategy: dict) -> None:
+    """Insert or update one user strategy in Google Sheets."""
+    ws = _strategies_worksheet()
+    values = [
+        strategy.get("id", ""),
+        strategy.get("name", ""),
+        strategy.get("description", ""),
+        strategy.get("source", "manual"),
+        strategy.get("created_at", ""),
+        strategy.get("updated_at", ""),
+        json.dumps(strategy.get("params", {}), ensure_ascii=False, separators=(",", ":")),
+    ]
+    rows = ws.get_all_records()
+    for row_number, row in enumerate(rows, start=2):
+        if str(row.get("id", "")).strip() == str(strategy.get("id", "")).strip():
+            ws.update(f"A{row_number}:G{row_number}", [values], value_input_option="RAW")
+            return
+    ws.append_row(values, value_input_option="RAW")
+
+
+def delete_saved_strategy(strategy_id: str) -> bool:
+    """Delete one persisted user strategy from Google Sheets."""
+    ws = _strategies_worksheet()
+    for row_number, row in enumerate(ws.get_all_records(), start=2):
+        if str(row.get("id", "")).strip() == str(strategy_id).strip():
+            ws.delete_rows(row_number)
+            return True
+    return False
+
+
 def append_signals(signals: list[dict]):
     """把結果寫回 Signals 分頁"""
     if not signals:
