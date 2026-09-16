@@ -2,8 +2,8 @@ name: V3 Daily Signal
 
 on:
   schedule:
-    # Taiwan time 17:00 = UTC 09:00, allowing both markets time to publish data.
-    - cron: "0 9 * * 1-5"
+    # Taiwan time 16:00 = UTC 08:00. Closing data is normally available by then.
+    - cron: "0 8 * * 1-5"
   workflow_dispatch:
 
 jobs:
