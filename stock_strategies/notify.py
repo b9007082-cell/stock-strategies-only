@@ -230,14 +230,28 @@ def format_messages(
             msg2.append(f"❓ 差在: {_explain_why(s)}")
             msg2.append("")
 
-        if rest_watches:
-            msg2.append(f"📎 *其他觀察 ({len(rest_watches)})*")
-            rest_line = ", ".join(
-                [f"{s['stock_id']}{s['name']}({s['signal_score']})" for s in rest_watches]
-            )
-            msg2.append(rest_line)
-            msg2.append("")
     messages.append("\n".join(msg2))
+
+    # Telegram limits one message to 4096 characters. Keep the highest-ranked
+    # WATCH stocks with BUY above, then send every remaining WATCH in detailed
+    # batches instead of collapsing them into a one-line summary.
+    if watches:
+        rest_watches = watches[8:]
+        batch_size = 6
+        total_batches = (len(rest_watches) + batch_size - 1) // batch_size
+        for batch_index in range(total_batches):
+            batch = rest_watches[
+                batch_index * batch_size:(batch_index + 1) * batch_size
+            ]
+            detail_msg = [
+                f"📎 *WATCH 完整觀察 ({batch_index + 1}/{total_batches})*",
+                "",
+            ]
+            for s in batch:
+                detail_msg.extend(_format_stock_detail(s))
+                detail_msg.append(f"❓ 差在: {_explain_why(s)}")
+                detail_msg.append("")
+            messages.append("\n".join(detail_msg))
 
     # === 第三則：操作建議總結 ===
     msg3 = []
