@@ -165,16 +165,25 @@ export default function Dashboard() {
               <div key={r.stock_id} className="bg-panel2 border border-line rounded-lg p-3 flex items-center gap-3">
                 <ActionBadge action={r.action} />
                 <div className="font-mono w-16">{r.stock_id}</div>
-                <div className="flex-1 truncate">
+                <div className="flex-1 min-w-0">
                   <div className="text-sm">{r.name}</div>
-                  <div className="text-xs text-muted">
+                  <div className="text-xs text-muted break-words">
                     {r.risk_notes?.join(" · ") || r.components?.tech_signals?.join(" · ") || "—"}
                   </div>
                   {(r.action === "BUY" || r.action === "WATCH") && (
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                      <div><span className="text-muted">參考價</span> <span className="font-mono">{r.entry_price ?? "—"}</span></div>
-                      <div><span className="text-muted">停損</span> <span className="font-mono text-err">{r.stop_loss_price ?? "—"}</span></div>
-                      <div><span className="text-muted">目標</span> <span className="font-mono text-buy">{r.target_price ?? "—"}</span></div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 text-xs">
+                      <div className="flex items-center justify-between sm:block rounded bg-panel px-2 py-1.5 sm:bg-transparent sm:p-0">
+                        <span className="text-muted">參考價</span>
+                        <span className="font-mono whitespace-nowrap">{r.entry_price ?? "—"}</span>
+                      </div>
+                      <div className="flex items-center justify-between sm:block rounded bg-panel px-2 py-1.5 sm:bg-transparent sm:p-0">
+                        <span className="text-muted">停損</span>
+                        <span className="font-mono text-err whitespace-nowrap">{r.stop_loss_price ?? "—"}</span>
+                      </div>
+                      <div className="flex items-center justify-between sm:block rounded bg-panel px-2 py-1.5 sm:bg-transparent sm:p-0">
+                        <span className="text-muted">目標</span>
+                        <span className="font-mono text-buy whitespace-nowrap">{r.target_price ?? "—"}</span>
+                      </div>
                     </div>
                   )}
                 </div>
