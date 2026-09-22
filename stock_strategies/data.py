@@ -60,13 +60,18 @@ def get_price_history(stock_id: str, years: int = 3, live_bar: dict | None = Non
     for col in ["open", "high", "low", "close", "volume"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+    # FinMind may return either strings or pandas timestamps depending on
+    # whether the row came from parquet cache.  Keep one dtype before merging
+    # the exchange's provisional row so sorting is always deterministic.
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
     if live_bar:
         # Replace an already-published row for today or append the provisional
         # row.  This keeps rolling indicators from counting today twice.
-        live_date = str(live_bar["date"])
-        df = df[df["date"].astype(str).str[:10] != live_date]
-        df = pd.concat([df, pd.DataFrame([{k: live_bar[k] for k in
-            ("date", "open", "high", "low", "close", "volume")}])], ignore_index=True)
+        live_date = pd.to_datetime(live_bar["date"])
+        df = df[df["date"].dt.normalize() != live_date.normalize()]
+        row = {k: live_bar[k] for k in ("date", "open", "high", "low", "close", "volume")}
+        row["date"] = live_date
+        df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     return df.sort_values("date").reset_index(drop=True)
 
 
