@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [universe, setUniverse] = useState<"watchlist" | "active" | "price_groups">("price_groups");
   const [activeCount, setActiveCount] = useState(10);
   const [running, setRunning] = useState(false);
+  const [runningMode, setRunningMode] = useState<"daily" | "realtime" | null>(null);
   const [run, setRun] = useState<RunResult | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +42,12 @@ export default function Dashboard() {
     api.getWatchlist().then((w) => setWatchCount(w.items?.length ?? 0)).catch(() => setWatchCount(null));
   }, []);
 
-  async function doRun() {
+  async function doRun(realtime = false) {
     setRunning(true);
+    setRunningMode(realtime ? "realtime" : "daily");
     setError(null);
     try {
-      const r = await api.run(picked, undefined, universe, activeCount);
+      const r = await api.run(picked, undefined, universe, activeCount, realtime);
       setRun(r);
       const now = new Date().toISOString();
       setSavedAt(now);
@@ -60,6 +62,7 @@ export default function Dashboard() {
       setError(e.message);
     } finally {
       setRunning(false);
+      setRunningMode(null);
     }
   }
 
@@ -139,10 +142,16 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <button onClick={doRun} disabled={running || !picked} className="btn-primary h-10">
-            {running ? "分析中…請稍候，可能需要數分鐘" : "▶ 執行"}
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button onClick={() => doRun(false)} disabled={running || !picked} className="btn-primary h-10">
+              {runningMode === "daily" ? "分析中…" : "▶ 正式日 K 分析"}
+            </button>
+            <button onClick={() => doRun(true)} disabled={running || !picked} className="h-10 px-4 rounded-lg bg-watch text-black font-medium disabled:opacity-50 whitespace-nowrap">
+              {runningMode === "realtime" ? "取得即時行情中…" : "⚡ 今日即時分析"}
+            </button>
+          </div>
         </div>
+        <p className="text-xs text-muted mt-3">「今日即時分析」會以交易所目前的開、高、低、最新價與成交量建立暫定日 K；只顯示於網站，不寫入 Google Sheet，也不發送 Telegram。</p>
         {error && <div className="text-sm text-err mt-3">錯誤：{error}</div>}
       </div>
 
@@ -159,6 +168,7 @@ export default function Dashboard() {
           </div>
           <div className="text-xs text-muted mb-3">{run.market.note}</div>
           <div className="text-xs text-muted mb-3">來源：{run.universe?.source === "price_groups" ? "高／中／低價分組" : run.universe?.source === "active" ? "成交活躍台股" : "Watchlist"} · 分析 {run.summary.total} 檔 {run.universe?.date && `· 成交排行日期 ${run.universe.date}`}</div>
+          {run.analysis_mode === "realtime" && <div className="text-xs text-watch mb-3">⚡ 今日即時行情分析 · 暫定日 K {run.snapshot_time && `· 行情時間 ${run.snapshot_time}`}</div>}
           {savedAt && <div className="text-xs text-muted mb-3">結果已儲存於此瀏覽器 · {new Date(savedAt).toLocaleString("zh-TW")}</div>}
           <div className="space-y-2">
             {run.results.map((r) => (

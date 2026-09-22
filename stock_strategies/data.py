@@ -51,7 +51,7 @@ def fetch_finmind(
     return pd.DataFrame()
 
 
-def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:
+def get_price_history(stock_id: str, years: int = 3, live_bar: dict | None = None) -> pd.DataFrame:
     start = (datetime.now() - timedelta(days=365 * years + 60)).strftime("%Y-%m-%d")
     df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start)
     if df.empty:
@@ -60,6 +60,13 @@ def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:
     for col in ["open", "high", "low", "close", "volume"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+    if live_bar:
+        # Replace an already-published row for today or append the provisional
+        # row.  This keeps rolling indicators from counting today twice.
+        live_date = str(live_bar["date"])
+        df = df[df["date"].astype(str).str[:10] != live_date]
+        df = pd.concat([df, pd.DataFrame([{k: live_bar[k] for k in
+            ("date", "open", "high", "low", "close", "volume")}])], ignore_index=True)
     return df.sort_values("date").reset_index(drop=True)
 
 

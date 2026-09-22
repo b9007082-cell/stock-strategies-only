@@ -11,7 +11,8 @@ from .volume import detect_patterns, verdict as volume_verdict
 from .loader import merge_params
 
 
-def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional[dict]:
+def evaluate(stock_id: str, name: str, strategy: dict | None = None,
+             live_bar: dict | None = None) -> Optional[dict]:
     """評估一檔股票。strategy 為策略 dict（含 params），不給就用預設值。"""
     params = merge_params(strategy)
 
@@ -34,7 +35,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             and min(roe_vals) > params["roe_threshold"]
         )
 
-        px = get_price_history(stock_id, params["backtest_years"])
+        px = get_price_history(stock_id, params["backtest_years"], live_bar=live_bar)
         if len(px) < 100:
             result["action"] = "SKIP"
             result["risk_notes"].append("價格資料不足")
@@ -139,6 +140,8 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             "risk_reward_ratio": rr,
             "position_size_pct": round(position_pct, 1),
             "entry_rule": entry_rule,
+            "realtime": bool(live_bar),
+            "snapshot_time": live_bar.get("snapshot_time") if live_bar else None,
         })
         return result
 

@@ -42,6 +42,7 @@ from stock_strategies.universe import get_active_stocks, get_active_stocks_by_pr
 from stock_strategies import loader
 from stock_strategies.evaluate import evaluate
 from stock_strategies.market import apply_market_filter, get_market_state
+from stock_strategies.realtime import get_realtime_bars
 from stock_strategies.sheet import (
     delete_saved_strategy,
     read_saved_strategies,
@@ -94,6 +95,7 @@ class RunIn(BaseModel):
     active_count: int = Field(20, ge=1, le=30)
     strategy_id: str
     limit: Optional[int] = Field(None, description="只跑前 N 檔（debug 用）")
+    realtime: bool = Field(False, description="以交易所即時行情補入今日暫定日 K")
 
 
 # ---------- Routes ----------
@@ -214,11 +216,28 @@ def run(payload: RunIn):
     else:
         market_state = {"bullish": True, "note": "已關閉大盤濾鏡"}
 
+    live_bars: dict[str, dict] = {}
+    if payload.realtime:
+        try:
+            live_bars = get_realtime_bars(wl)
+        except Exception as e:
+            raise HTTPException(502, f"取得今日即時行情失敗：{e}")
+        if not live_bars:
+            raise HTTPException(409, "目前沒有今日即時行情，請在台股交易日開盤後再試")
+
     results = []
     for row in wl:
         sid = str(row["stock_id"])
         name = row.get("name", "")
-        r = evaluate(sid, name, strategy=strategy)
+        live_bar = live_bars.get(sid) if payload.realtime else None
+        if payload.realtime and not live_bar:
+            results.append({
+                "stock_id": sid, "name": name, "date": None, "action": "ERROR",
+                "signal_score": 0, "risk_notes": ["查無今日即時成交資料"],
+                "realtime": True,
+            })
+            continue
+        r = evaluate(sid, name, strategy=strategy, live_bar=live_bar)
         if r:
             results.append(r)
         time.sleep(0.4)
@@ -233,6 +252,8 @@ def run(payload: RunIn):
 
     return jsonable_encoder({
         "universe": {"source": payload.universe, "count": len(wl), "date": wl[0].get("date") if wl else None},
+        "analysis_mode": "realtime" if payload.realtime else "daily",
+        "snapshot_time": max((bar.get("snapshot_time", "") for bar in live_bars.values()), default=None),
         "strategy": {"id": strategy["id"], "name": strategy["name"]},
         "market": market_state,
         "downgraded": downgraded,

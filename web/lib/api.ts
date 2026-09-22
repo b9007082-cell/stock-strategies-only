@@ -19,6 +19,8 @@ export type RunResult = {
   downgraded: number;
   summary: { total: number; buy: number; watch: number; skip: number; error: number };
   results: any[];
+  analysis_mode?: "daily" | "realtime";
+  snapshot_time?: string | null;
 };
 
 async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -64,9 +66,9 @@ export const api = {
     }),
   getMarket: () => jfetch<any>("/api/market"),
   getWatchlist: () => jfetch<{ items: any[]; error?: string }>("/api/watchlist"),
-  run: (strategy_id: string, limit?: number, universe: "watchlist" | "active" | "price_groups" = "watchlist", active_count = 20) =>
+  run: (strategy_id: string, limit?: number, universe: "watchlist" | "active" | "price_groups" = "watchlist", active_count = 20, realtime = false) =>
     jfetch<RunResult>("/api/run", {
       method: "POST",
-      body: JSON.stringify({ strategy_id, limit, universe, active_count }),
+      body: JSON.stringify({ strategy_id, limit, universe, active_count, realtime }),
     }),
 };
